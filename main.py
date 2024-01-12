@@ -1,11 +1,14 @@
 import tkinter as tk
 from tkinter import Scrollbar, Text, Entry, Button
 from tkinter import simpledialog
+from tkinter import messagebox
 from chatterbot import ChatBot
 from chatterbot.trainers import ListTrainer
 from data.training_data import training_data
 from responses.greetings import greetings_responses
 from chatterbot import languages
+import requests
+
 
 languages.ENG.ISO_639_1 = "en_core_web_sm"
 
@@ -13,6 +16,7 @@ tele_bot = ChatBot('TeleBot',
                    storage_adapter='chatterbot.storage.SQLStorageAdapter',
                    logic_adapters=[
                        {
+
                            'import_path': 'chatterbot.logic.BestMatch',
                            'default_response': "I'm sorry, I didn't understand that. Could you please rephrase?",
                            'maximum_similarity_threshold': 0.60  # Adjust the threshold as needed
@@ -22,6 +26,7 @@ tele_bot = ChatBot('TeleBot',
 # Training the bot
 trainer = ListTrainer(tele_bot)
 trainer.train(training_data)
+trainer.train('chatterbot.corpus.english')
 
 # Training with specific response categories
 trainer.train(greetings_responses)
@@ -84,18 +89,39 @@ class ChatBotGUI:
         self.user_input.delete(0, 'end')
 
     def learn_from_user(self, user_message):
-        # Ask the user for the correct response
-        correct_response = simpledialog.askstring("Learn from User",
-                                                  f"I don't know the answer. Can you provide the correct response for '{user_message}'?")
+        # Ask the user for the action: teach or get related links
+        action = messagebox.askquestion("Learn from User",
+                                        f"I don't know the answer. Would you like to teach me or get related links for '{user_message}'?")
 
-        if correct_response:
-            buffer = [user_message, correct_response]
-            trainer.train(buffer)
+        if action == 'yes':  # User wants to teach
+            correct_response = simpledialog.askstring("Teach the Bot",
+                                                      f"Sure! Please provide the correct response for '{user_message}'.")
 
-            # Display a confirmation message
-            self.display_message("Thank you for teaching me!", 'bot')
-        else:
-            self.display_message("I couldn't learn from you this time. Please provide a valid response.", 'bot')
+            if correct_response:
+                # Create a list and store the variables in it
+                training_data_point = [user_message, correct_response]
+
+                # Append the new training data
+                trainer.train(training_data_point)
+
+                # Display a confirmation message
+                self.display_message("Thank you for teaching me!", 'bot')
+            else:
+                self.display_message("I couldn't learn from you this time. Please provide a valid response.", 'bot')
+        else:  # User wants related links
+            related_links = self.get_related_links(user_message)
+            self.display_message("Here are some related links:\n" + "\n".join(related_links), 'bot')
+
+    def get_related_links(self, query):
+        # Placeholder function to generate related links based on the user's query
+        base_url = "https://www.stackoverflow.com/search?q="
+        encoded_query = requests.utils.quote(query)
+
+        # Simulate generating three related links
+        return [f"{base_url}{encoded_query}&result=1",
+                f"{base_url}{encoded_query}&result=2",
+                f"{base_url}{encoded_query}&result=3"]
+
 
     def display_message(self, message, sender):
         self.chat_display.config(state='normal')
